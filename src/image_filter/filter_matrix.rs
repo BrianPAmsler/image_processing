@@ -15,4 +15,8 @@ impl FilterMatrix {
     pub fn get(&self, x: usize, y: usize) -> f32 {
         self.mat[x + y * self.dim]
     }
+
+    pub fn size(&self) -> usize {
+        self.dim
+    }
 }
