@@ -1,6 +1,10 @@
 mod image_filter;
-use image::io::Reader as ImageReader;
+mod float_image;
+
+use image::{io::Reader as ImageReader, ImageBuffer, RgbImage};
 use image_filter::{filter_image, FilterMatrix};
+
+use crate::float_image::FImage;
 
 const GRADIENT_H: [[f32; 3]; 3] = [[-1.0, 0.0, 1.0],
                                [-2.0, 0.0, 2.0],
@@ -32,7 +36,12 @@ fn main() {
     let combined = image_filter::combine_images(&h, &v);
     let mono = image_filter::combine_color_channels(&combined);
 
-    let output = mono;
+    let mut f = FImage::new(mono.width() as usize, mono.height() as usize, false);
+    f.copy_from_image_buffer(&input);
+
+    let mut output = RgbImage::new(mono.width(), mono.height());
+    f.copy_to_image_buffer(&mut output);
+
     println!("Done.");
     output.save("output.png").unwrap();
 }
