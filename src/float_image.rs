@@ -3,72 +3,163 @@ use image::{GenericImage, Primitive};
 const SAMPLE_X: usize = 977;
 const SAMPLE_Y: usize = 414;
 
+#[derive(Debug, Clone, Copy)]
+pub enum PixelFormat {
+    RGB,
+    RGBA,
+    Mono
+}
+
+impl PixelFormat {
+    pub fn channel_count(&self) -> usize {
+        match self { PixelFormat::Mono => 1, PixelFormat::RGB => 3, PixelFormat::RGBA => 4 }
+    }
+}
+
+#[derive(Debug, Clone)]
+enum PixelData<'p> {
+    Owned(Box<[f32]>),
+    Slice(&'p [f32])
+}
+
 #[derive(Debug)]
-pub enum Pixel {
-    RGB{r: f32, g: f32, b: f32},
-    RGBA{r: f32, g: f32, b: f32, a: f32}
+pub struct Pixel<'p> {
+    data: PixelData<'p>,
+    format: PixelFormat
+}
+
+impl Pixel<'_> {
+    pub fn rgb<'p>(r: f32, g: f32, b: f32) -> Pixel<'p> {
+        let data = Box::new([r, g, b]);
+        Pixel { data: PixelData::Owned(data), format: PixelFormat::RGB }
+    }
+
+    pub fn rgba<'p>(r: f32, g: f32, b: f32, a: f32) -> Pixel<'p> {
+        let data = Box::new([r, g, b, a]);
+        Pixel { data: PixelData::Owned(data), format: PixelFormat::RGBA }
+    }
+
+    pub fn mono<'p>(r: f32) -> Pixel<'p> {
+        let data = Box::new([r]);
+        Pixel { data: PixelData::Owned(data), format: PixelFormat::Mono }
+    }
+
+    pub fn from_slice<'p>(slice: &'p [f32]) -> Pixel<'p> {
+        let format = match slice.len() {
+            1 => PixelFormat::Mono,
+            3 => PixelFormat::RGB,
+            4 => PixelFormat::RGBA,
+            _ => panic!("Invalid pixel slice!")
+        };
+
+        Pixel { data: PixelData::Slice(slice), format }
+    }
+
+    pub fn from_boxed_slice<'p>(bx: Box<[f32]>) -> Pixel<'p> {
+        let format = match bx.len() {
+            1 => PixelFormat::Mono,
+            3 => PixelFormat::RGB,
+            4 => PixelFormat::RGBA,
+            _ => panic!("Invalid pixel slice!")
+        };
+
+        Pixel { data: PixelData::Owned(bx), format }
+    }
+
+    pub fn slice<'p>(&'p self) -> &'p [f32] {
+        match &self.data {
+            PixelData::Owned(d) => &d[..],
+            PixelData::Slice(s) => *s,
+        }
+    }
+
+    pub fn r(&self) -> f32 {
+        self.slice()[0]
+    }
+
+    pub fn g(&self) -> f32 {
+        match self.slice().len() {
+            1 => self.slice()[0],
+            _ => self.slice()[1]
+        }
+    }
+
+    pub fn b(&self) -> f32 {
+        match self.slice().len() {
+            1 => self.slice()[0],
+            _ => self.slice()[2]
+        }
+    }
+
+    pub fn a(&self) -> f32 {
+        match self.slice().len() {
+            4 => self.slice()[3],
+            _ => 1.0
+        }
+    }
+
+    pub fn format(&self) -> PixelFormat {
+        self.format
+    }
+}
+
+impl<'p> Clone for Pixel<'p> {
+    fn clone(&self) -> Pixel<'p> {
+        let slice = self.slice();
+        let data = slice.to_owned();
+        Pixel { data: PixelData::Owned(data.into_boxed_slice()), format: self.format }
+    }
 }
 
 #[derive(Clone)]
 pub struct FImage {
     width: usize,
     height: usize,
-    alpha: bool,
+    format: PixelFormat,
     pixels: Box<[f32]>
 }
 
 impl FImage {
-    pub fn new(width: usize, height: usize, use_alpha_channel: bool) -> FImage {
-        let channels = if use_alpha_channel {4} else {3};
+    pub fn new(width: usize, height: usize, format: PixelFormat) -> FImage {
+        let channels = format.channel_count();
         let data = vec![0.0; width * height * channels];
 
-        FImage { width, height, alpha: use_alpha_channel, pixels: data.into_boxed_slice() }
+        FImage { width, height, format, pixels: data.into_boxed_slice() }
     }
 
     pub fn get_pixel(&self, x: i32, y: i32) -> Pixel {
-        let channels = if self.alpha {4} else {3};
+        let channels = self.format.channel_count();
         
         let mod_x = {let r = x % self.width as i32; if r < 0 {r + self.width as i32} else {r}} as usize;
         let mod_y = {let r = y % self.height as i32; if r < 0 {r + self.height as i32} else {r}} as usize;
 
         let offset = channels as usize * (mod_x + mod_y * self.width);
 
-        if self.alpha {
-            Pixel::RGBA{r: self.pixels[offset], g: self.pixels[offset + 1], b: self.pixels[offset + 2], a: self.pixels[offset + 3]}
-        } else {
-            Pixel::RGB{r: self.pixels[offset], g: self.pixels[offset + 1], b: self.pixels[offset + 2]}
-        }
+        Pixel::from_slice(&self.pixels[offset..offset + channels])
     }
 
     pub fn set_pixel(&mut self, x: i32, y: i32, pixel: Pixel) {
-        let channels = if self.alpha {4} else {3};
+        let channels = self.format.channel_count();
         
         let mod_x = {let r = x % self.width as i32; if r < 0 {r + self.width as i32} else {r}} as usize;
         let mod_y = {let r = y % self.height as i32; if r < 0 {r + self.height as i32} else {r}} as usize;
 
-        // println!("x: {}\t mod_x: {}", x, mod_x);
-        // println!("y: {}\t mod_y: {}", y, mod_y);
-
         let offset = channels as usize * (mod_x + mod_y * self.width);
 
-        if self.alpha {
-            let p = match pixel { Pixel::RGBA { r, g, b, a } => (r, g, b, a), _ => panic!("Incorrect pixel format!")};
+        self.pixels[offset] = pixel.r();
+        
+        if channels >= 3 {
+            self.pixels[offset + 1] = pixel.g();
+            self.pixels[offset + 2] = pixel.b();
+        }
 
-            self.pixels[offset] = p.0;
-            self.pixels[offset + 1] = p.1;
-            self.pixels[offset + 2] = p.2;
-            self.pixels[offset + 3] = p.3;
-        } else {
-            let p = match pixel { Pixel::RGB { r, g, b} => (r, g, b), _ => panic!("Incorrect pixel format!")};
-
-            self.pixels[offset] = p.0;
-            self.pixels[offset + 1] = p.1;
-            self.pixels[offset + 2] = p.2;
+        if channels == 4 {
+            self.pixels[offset + 3] = pixel.a();
         }
     }
 
-    pub fn has_alpha_channel(&self) -> bool {
-        self.alpha
+    pub fn get_pixel_format(&self) -> PixelFormat {
+        self.format
     }
 
     pub fn width(&self) -> usize {
@@ -84,7 +175,7 @@ impl FImage {
         let mut max = f32::NEG_INFINITY;
 
         for (i, c) in self.pixels.iter().enumerate() {
-            if !self.alpha || i % 4 != 3 {
+            if !matches!(self.format, PixelFormat::RGBA) || i % 4 != 3 {
                 if *c > max {max = *c}
                 if *c < min {min = *c}
             }
@@ -98,7 +189,7 @@ impl FImage {
     pub fn clip(&mut self, min: f32, max: f32) {
         let range = max - min;
         for (i, c) in self.pixels.iter_mut().enumerate() {  
-            if !self.alpha || i % 4 != 3 {
+            if !matches!(self.format, PixelFormat::RGBA) || i % 4 != 3 {
                 *c = ((*c - min) / range).clamp(0.0, 1.0);
             }
         }
@@ -114,13 +205,8 @@ impl FImage {
 
         for x in 0..self.width {
             for y in 0..self.height {
-                let p = if self.alpha {
-                    let t = image.get_pixel(x as u32, y as u32).to_rgba();
-                    Pixel::RGBA { r: t.0[0].to_f32().unwrap(), g: t.0[1].to_f32().unwrap(), b: t.0[2].to_f32().unwrap(), a: t.0[3].to_f32().unwrap() }
-                } else {
-                    let t = image.get_pixel(x as u32, y as u32).to_rgb();
-                    Pixel::RGB { r: t.0[0].to_f32().unwrap(), g: t.0[1].to_f32().unwrap(), b: t.0[2].to_f32().unwrap() }
-                };
+                let t = image.get_pixel(x as u32, y as u32).to_rgba();
+                let p = Pixel::rgba(t.0[0].to_f32().unwrap() / 255.0, t.0[1].to_f32().unwrap() / 255.0, t.0[2].to_f32().unwrap() / 255.0, t.0[3].to_f32().unwrap() / 255.0);
 
                 self.set_pixel(x as i32, y as i32, p);
 
@@ -146,21 +232,23 @@ impl FImage {
         for x in 0..self.width {
             for y in 0..self.height {
                 let p = temp.get_pixel(x as i32, y as i32);
-                if x == SAMPLE_X && y == SAMPLE_Y {
-                    println!("Pixel read at ({}, {}): {:?}", SAMPLE_X, SAMPLE_Y, temp.get_pixel(x as i32, y as i32));
-                }
+                let p2 = Pixel::rgba(p.r(), p.g(), p.b(), p.a());
 
                 let mut v = vec![SP::DEFAULT_MAX_VALUE; P::CHANNEL_COUNT as usize];
-                let a = match p {
-                    Pixel::RGB { r, g, b } => vec![r, g, b],
-                    Pixel::RGBA { r, g, b, a } => vec![r, g, b, a]
-                };
+                let a = p2.slice();
 
                 for i in 0..v.len().min(a.len()) {
                     v[i] = SP::from(a[i] * 255.0).unwrap();
                 }
 
                 let pixel = P::from_slice(&v).clone();
+
+                if x == SAMPLE_X && y == SAMPLE_Y {
+                    let colorpx = Pixel::rgb(p.r(), p.g(), p.b());
+                    println!("Pixel read at ({}, {}): {:?}", SAMPLE_X, SAMPLE_Y, colorpx);
+
+                    println!("Pixel put at ({}, {}): ({}, {}, {})", SAMPLE_X, SAMPLE_Y, a[0], a[1], a[2]);
+                }
 
                 image.put_pixel(x as u32, y as u32, pixel);
             }

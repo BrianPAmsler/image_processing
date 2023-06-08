@@ -2,9 +2,9 @@ mod image_filter;
 mod float_image;
 
 use image::{io::Reader as ImageReader, ImageBuffer, RgbImage};
-use image_filter::{filter_image, FilterMatrix};
+use image_filter::{FilterMatrix};
 
-use crate::float_image::FImage;
+use crate::float_image::{FImage, PixelFormat};
 
 const GRADIENT_H: [[f32; 3]; 3] = [[-1.0, 0.0, 1.0],
                                [-2.0, 0.0, 2.0],
@@ -26,21 +26,21 @@ const GAUSSIAN: [[f32; 9]; 9] =   [[0.0000, 0.0000, 0.0000, 0.0001, 0.0001, 0.00
                                [0.0000,	0.0000,	0.0000,	0.0001,	0.0001,	0.0001,	0.0000,	0.0000,	0.0000]];
 fn main() {
     let input = ImageReader::open("input.png").unwrap().decode().unwrap();
+    let mut fimage = FImage::new(input.width() as usize, input.height() as usize, PixelFormat::RGB);
+    fimage.copy_from_image_buffer(&input);
 
-    let blurred = filter_image(&input, FilterMatrix::new(GAUSSIAN));
+    println!("Blurring...");
+    let blurred = image_filter::filter_image(&fimage, FilterMatrix::new(GAUSSIAN));
 
     println!("Filtering...");
-    let h = filter_image(&blurred, FilterMatrix::new(GRADIENT_H));
-    let v = filter_image(&blurred, FilterMatrix::new(GRADIENT_V));
+    let h = image_filter::filter_image(&blurred, FilterMatrix::new(GRADIENT_H));
+    let v = image_filter::filter_image(&blurred, FilterMatrix::new(GRADIENT_V));
 
     let combined = image_filter::combine_images(&h, &v);
     let mono = image_filter::combine_color_channels(&combined);
 
-    let mut f = FImage::new(mono.width() as usize, mono.height() as usize, false);
-    f.copy_from_image_buffer(&input);
-
-    let mut output = RgbImage::new(mono.width(), mono.height());
-    f.copy_to_image_buffer(&mut output);
+    let mut output = RgbImage::new(input.width(), input.height());
+    mono.copy_to_image_buffer(&mut output);
 
     println!("Done.");
     output.save("output.png").unwrap();
