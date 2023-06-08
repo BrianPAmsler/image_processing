@@ -4,7 +4,7 @@ mod float_image;
 use image::{io::Reader as ImageReader, ImageBuffer, RgbImage};
 use image_filter::{FilterMatrix};
 
-use crate::float_image::{FImage, PixelFormat};
+use crate::float_image::{FImage, PixelFormat, Pixel};
 
 const GRADIENT_H: [[f32; 3]; 3] = [[-1.0, 0.0, 1.0],
                                [-2.0, 0.0, 2.0],
@@ -36,7 +36,21 @@ fn main() {
     let h = image_filter::filter_image(&blurred, FilterMatrix::new(GRADIENT_H));
     let v = image_filter::filter_image(&blurred, FilterMatrix::new(GRADIENT_V));
 
-    let combined = image_filter::combine_images(&h, &v);
+    // square and invert
+    let h_sqinv = image_filter::fn_filter(&h, |x, y, p| {
+        let t = Pixel::rgba(-1.0 * (p.r() * p.r()), -1.0 * (p.g() * p.g()), -1.0 * (p.b() * p.b()), p.a());
+        let v = t.slice()[..p.slice().len()].to_owned();
+
+        Pixel::from_boxed_slice(v.into_boxed_slice())
+    });
+    let v_sqinv = image_filter::fn_filter(&v, |x, y, p| {
+        let t = Pixel::rgba(-1.0 * (p.r() * p.r()), -1.0 * (p.g() * p.g()), -1.0 * (p.b() * p.b()), p.a());
+        let v = t.slice()[..p.slice().len()].to_owned();
+
+        Pixel::from_boxed_slice(v.into_boxed_slice())
+    });
+
+    let combined = image_filter::combine_images(&h_sqinv, &v_sqinv);
     let mono = image_filter::combine_color_channels(&combined);
 
     let mut output = RgbImage::new(input.width(), input.height());

@@ -1,6 +1,5 @@
 mod filter_matrix;
 pub use filter_matrix::FilterMatrix;
-use image::{ImageBuffer, GenericImage, Primitive, Rgba};
 
 use crate::float_image::{Pixel, FImage, PixelFormat};
 
@@ -36,6 +35,20 @@ pub fn filter_image(img: &FImage, filter: FilterMatrix) -> FImage {
             let px = img.get_pixel(x as i32, y as i32);
 
             out.set_pixel(x as i32, y as i32, filter_pixel((px, x as i32, y as i32), img, &filter));
+        }
+    }
+
+    out
+}
+
+pub fn fn_filter<FN: FnMut(i32, i32, Pixel) -> Pixel>(img: &FImage, mut func: FN) -> FImage {
+    let mut out = FImage::new(img.width(), img.height(), img.get_pixel_format());
+    
+    for x in 0..img.width() {
+        for y in 0..img.height() {
+            let px = img.get_pixel(x as i32, y as i32);
+
+            out.set_pixel(x as i32, y as i32, func(x as i32, y as i32, px));
         }
     }
 
