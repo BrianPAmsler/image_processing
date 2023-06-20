@@ -158,6 +158,18 @@ impl FImage {
         }
     }
 
+    pub fn set_pixel_blended(&mut self, x: i32, y: i32, pixel: Pixel) {
+        let current = self.get_pixel(x, y);
+        
+        let a = pixel.a();
+        let a_ = 1.0 - a;
+
+        // TODO: This does not work properly if the current pixel has alpha
+        let new_pixel = Pixel::rgba(pixel.r() * a + current.r() * a_, pixel.g() * a + current.g() * a_, pixel.b() * a + current.b() * a_, current.a());
+
+        self.set_pixel(x, y, new_pixel);
+    }
+
     pub fn get_pixel_format(&self) -> PixelFormat {
         self.format
     }
@@ -187,7 +199,10 @@ impl FImage {
     }
 
     pub fn clip(&mut self, min: f32, max: f32) {
-        let range = max - min;
+        let mut range = max - min;
+        if range == 0.0 {
+            range = 1.0;
+        }
         for (i, c) in self.pixels.iter_mut().enumerate() {  
             if !matches!(self.format, PixelFormat::RGBA) || i % 4 != 3 {
                 *c = ((*c - min) / range).clamp(0.0, 1.0);
@@ -227,7 +242,7 @@ impl FImage {
         }
 
         let mut temp = self.clone();
-        temp.normalize();
+        temp.clip(0.0, 1.0);
 
         for x in 0..self.width {
             for y in 0..self.height {
