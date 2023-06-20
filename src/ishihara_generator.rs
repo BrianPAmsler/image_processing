@@ -84,6 +84,7 @@ pub fn generate_circles(width: usize, height: usize, min_radius: usize, max_radi
 
     let mut available_spaces = HashSet::new();
 
+    // This will probably be a problem
     for x in 0..grid.grid_width() {
         for y in 0..grid.grid_height() {
             available_spaces.insert((x, y));
