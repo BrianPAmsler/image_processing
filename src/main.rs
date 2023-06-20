@@ -59,8 +59,10 @@ fn main() {
     // println!("Watershed...");
     // let watershed = image_filter::watershed(&mono, (mono.width() as i32 / 2, mono.height() as i32 / 2), (10, 10));
 
-    let circles = generate_circles(fimage.width(), fimage.height(), 5, 20, 5, 0.75);
+    println!("Generating Circles...");
+    let circles = generate_circles(fimage.width(), fimage.height(), 20, 60, 10, 0.75);
 
+    println!("Drawing Circles...");
     for circle in &circles[..] {
         fill_circle(circle.x as i32, circle.y as i32, circle.radius as i32, Pixel::rgb(1.0, 1.0, 1.0), false, &mut fimage);
     }
