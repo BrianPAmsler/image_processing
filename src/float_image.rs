@@ -1,8 +1,5 @@
 use image::{GenericImage, Primitive};
 
-const SAMPLE_X: usize = 977;
-const SAMPLE_Y: usize = 414;
-
 #[derive(Debug, Clone, Copy)]
 pub enum PixelFormat {
     RGB,
@@ -100,6 +97,29 @@ impl Pixel<'_> {
 
     pub fn format(&self) -> PixelFormat {
         self.format
+    }
+
+    pub fn from_hex<'s>(hex: &'s str) -> Pixel {
+        // trim prefix
+        let t = if hex.starts_with("#") {
+            &hex[1..]
+        } else if hex.starts_with("0x") {
+            &hex[2..]
+        } else {
+            hex
+        };
+
+        if t.len() == 6 { // does not contain alpha
+            let parsed = u32::from_str_radix(t, 16).unwrap();
+
+            Pixel::rgb((parsed >> 16) as f32 / 255.0, ((parsed >> 8) & 0xFF) as f32 / 255.0, (parsed & 0xFF) as f32 / 255.0)
+        } else if t.len() == 8 { // does contain alpha
+            let parsed = u32::from_str_radix(t, 16).unwrap();
+
+            Pixel::rgba((parsed >> 24) as f32 / 255.0, ((parsed >> 16) & 0xFF) as f32 / 255.0, ((parsed >> 8) & 0xFF) as f32 / 255.0, (parsed & 0xFF) as f32 / 255.0)
+        } else {
+            panic!("invalid format!")
+        }
     }
 }
 
@@ -215,25 +235,14 @@ impl FImage {
             panic!("Dimensions do not match!");
         }
 
-        print!("Before copy from: ");
-        println!("Pixel read at ({}, {}): {:?}", SAMPLE_X, SAMPLE_Y, self.get_pixel(SAMPLE_X as i32, SAMPLE_Y as i32));
-
         for x in 0..self.width {
             for y in 0..self.height {
                 let t = image.get_pixel(x as u32, y as u32).to_rgba();
                 let p = Pixel::rgba(t.0[0].to_f32().unwrap() / 255.0, t.0[1].to_f32().unwrap() / 255.0, t.0[2].to_f32().unwrap() / 255.0, t.0[3].to_f32().unwrap() / 255.0);
 
                 self.set_pixel(x as i32, y as i32, p);
-
-                if x == SAMPLE_X && y == SAMPLE_Y {
-                    print!("During copy from: ");
-                    println!("Pixel read at ({}, {}): {:?}", x, y, self.get_pixel(x as i32, y as i32));
-                }
             }
         }
-
-        print!("After copy from: ");
-        println!("Pixel read at ({}, {}): {:?}", SAMPLE_X, SAMPLE_Y, self.get_pixel(SAMPLE_X as i32, SAMPLE_Y as i32));
     }
 
     pub fn copy_to_image_buffer<SP: Primitive, P: image::Pixel<Subpixel = SP>, I: GenericImage<Pixel = P>>(&self, image: &mut I) {
@@ -257,13 +266,6 @@ impl FImage {
                 }
 
                 let pixel = P::from_slice(&v).clone();
-
-                if x == SAMPLE_X && y == SAMPLE_Y {
-                    let colorpx = Pixel::rgb(p.r(), p.g(), p.b());
-                    println!("Pixel read at ({}, {}): {:?}", SAMPLE_X, SAMPLE_Y, colorpx);
-
-                    println!("Pixel put at ({}, {}): ({}, {}, {})", SAMPLE_X, SAMPLE_Y, a[0], a[1], a[2]);
-                }
 
                 image.put_pixel(x as u32, y as u32, pixel);
             }

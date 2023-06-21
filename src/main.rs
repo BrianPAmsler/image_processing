@@ -3,10 +3,14 @@ mod float_image;
 mod circle_drawer;
 mod ishihara_generator;
 
-use image::{io::Reader as ImageReader, ImageBuffer, RgbImage};
+use image::{io::Reader as ImageReader, ImageBuffer, RgbImage, RgbaImage};
 use image_filter::{FilterMatrix};
 
 use crate::{float_image::{FImage, PixelFormat, Pixel}, ishihara_generator::generate_circles, circle_drawer::{draw_circle, fill_circle}};
+
+const bg_colors: [&'static str; 7] = ["#cf5f47", "#cf5f47", "#fd9500", "#ffd500", "#ee8568", "#ee8568", "#eebd7a"];
+
+const fg_colors: [&'static str; 3] = ["#5a8a50", "#a2ab5a", "#c9cc7d"];
 
 const GRADIENT_H: [[f32; 3]; 3] = [[-1.0, 0.0, 1.0],
                                [-2.0, 0.0, 2.0],
@@ -28,9 +32,10 @@ const GAUSSIAN: [[f32; 9]; 9] =   [[0.0000, 0.0000, 0.0000, 0.0001, 0.0001, 0.00
                                [0.0000,	0.0000,	0.0000,	0.0001,	0.0001,	0.0001,	0.0000,	0.0000,	0.0000]];
 fn main() {
     let input = ImageReader::open("input.png").unwrap().decode().unwrap();
-    let mut fimage = FImage::new(input.width() as usize, input.height() as usize, PixelFormat::RGB);
+    let mut fimage = FImage::new(input.width() as usize, input.height() as usize, PixelFormat::RGBA);
     fimage.copy_from_image_buffer(&input);
 
+    let mut ishihara_canvas = FImage::new(fimage.width(), fimage.height(), PixelFormat::RGBA);
     // println!("Blurring...");
     // let blurred = image_filter::filter_image(&fimage, FilterMatrix::new(GAUSSIAN));
 
@@ -64,13 +69,24 @@ fn main() {
     println!("Generating Circles...");
     let circles = generate_circles(fimage.width(), fimage.height(), c_min, c_max, (c_min / 2).max(1), 0.75);
 
+
+    let fgs: Box<[Pixel]> = fg_colors.iter().map(|c| Pixel::from_hex(c)).collect();
+    let bgs: Box<[Pixel]> = bg_colors.iter().map(|c| Pixel::from_hex(c)).collect();
     println!("Drawing Circles...");
     for circle in &circles[..] {
-        fill_circle(circle.x as i32, circle.y as i32, circle.radius as i32, Pixel::rgb(1.0, 1.0, 1.0), false, &mut fimage);
+        let cat_pixel = fimage.get_pixel(circle.x as i32, circle.y as i32);
+        let color = if cat_pixel.a() > 0.5 {
+            let r = rand::random::<usize>() % fgs.len();
+            fgs[r].clone()
+        } else {
+            let r = rand::random::<usize>() % bgs.len();
+            bgs[r].clone()
+        };
+        fill_circle(circle.x as i32, circle.y as i32, circle.radius as i32, color, false, &mut ishihara_canvas);
     }
 
-    let mut output = RgbImage::new(input.width(), input.height());
-    fimage.copy_to_image_buffer(&mut output);
+    let mut output = RgbaImage::new(input.width(), input.height());
+    ishihara_canvas.copy_to_image_buffer(&mut output);
 
     println!("Done.");
     output.save("output.png").unwrap();
