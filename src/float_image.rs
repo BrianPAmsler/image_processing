@@ -184,8 +184,12 @@ impl FImage {
         let a = pixel.a();
         let a_ = 1.0 - a;
 
-        // TODO: This does not work properly if the current pixel has alpha
-        let new_pixel = Pixel::rgba(pixel.r() * a + current.r() * a_, pixel.g() * a + current.g() * a_, pixel.b() * a + current.b() * a_, current.a());
+        let r = a * pixel.r() + a_ * current.a() * current.r();
+        let g = a * pixel.g() + a_ * current.a() * current.g();
+        let b = a * pixel.b() + a_ * current.a() * current.b();
+        let a = a + a_ * current.a();
+
+        let new_pixel = Pixel::rgba(r, g, b, a);
 
         self.set_pixel(x, y, new_pixel);
     }
