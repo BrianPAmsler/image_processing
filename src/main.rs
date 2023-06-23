@@ -35,10 +35,9 @@ fn main() {
     let mut fimage = FImage::new(input.width() as usize, input.height() as usize, PixelFormat::RGBA);
     fimage.copy_from_image_buffer(&input);
 
-    // Fill bg white
-    image_filter::fn_filter(&mut fimage, |_, _, _| Pixel::rgba(1.0, 1.0, 1.0, 1.0));
-
     let mut ishihara_canvas = FImage::new(fimage.width(), fimage.height(), PixelFormat::RGBA);
+    // fill bg white
+    ishihara_canvas = image_filter::fn_filter(&mut ishihara_canvas, |_, _, _| Pixel::rgba(1.0, 1.0, 1.0, 1.0));
     // println!("Blurring...");
     // let blurred = image_filter::filter_image(&fimage, FilterMatrix::new(GAUSSIAN));
 
@@ -70,7 +69,7 @@ fn main() {
     let c_min = (((fimage.width().pow(2) + fimage.height().pow(2)) as f32).sqrt() * 0.005) as usize;
     let c_max = c_min * 2;
     println!("Generating Circles...");
-    let circles = generate_circles(fimage.width(), fimage.height(), c_min, c_max, (c_min / 2).max(1), 0.75);
+    let circles = generate_circles(fimage.width(), fimage.height(), c_min, c_max, (c_min / 2).max(1), 0.5);
 
 
     let fgs: Box<[Pixel]> = FG_COLORS.iter().map(|c| Pixel::from_hex(c)).collect();
