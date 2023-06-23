@@ -8,9 +8,9 @@ use image_filter::{FilterMatrix};
 
 use crate::{float_image::{FImage, PixelFormat, Pixel}, ishihara_generator::generate_circles, circle_drawer::{draw_circle, fill_circle}};
 
-const bg_colors: [&'static str; 7] = ["#cf5f47", "#cf5f47", "#fd9500", "#ffd500", "#ee8568", "#ee8568", "#eebd7a"];
+const BG_COLORS: [&'static str; 7] = ["#cf5f47", "#cf5f47", "#fd9500", "#ffd500", "#ee8568", "#ee8568", "#eebd7a"];
 
-const fg_colors: [&'static str; 3] = ["#5a8a50", "#a2ab5a", "#c9cc7d"];
+const FG_COLORS: [&'static str; 3] = ["#5a8a50", "#a2ab5a", "#c9cc7d"];
 
 const GRADIENT_H: [[f32; 3]; 3] = [[-1.0, 0.0, 1.0],
                                [-2.0, 0.0, 2.0],
@@ -70,12 +70,12 @@ fn main() {
     let circles = generate_circles(fimage.width(), fimage.height(), c_min, c_max, (c_min / 2).max(1), 0.75);
 
 
-    let fgs: Box<[Pixel]> = fg_colors.iter().map(|c| Pixel::from_hex(c)).collect();
-    let bgs: Box<[Pixel]> = bg_colors.iter().map(|c| Pixel::from_hex(c)).collect();
+    let fgs: Box<[Pixel]> = FG_COLORS.iter().map(|c| Pixel::from_hex(c)).collect();
+    let bgs: Box<[Pixel]> = BG_COLORS.iter().map(|c| Pixel::from_hex(c)).collect();
     println!("Drawing Circles...");
     for circle in &circles[..] {
         let cat_pixel = fimage.get_pixel(circle.x as i32, circle.y as i32);
-        let color = if cat_pixel.a() > 0.5 {
+        let color = if cat_pixel.a() > 0.2 {
             let r = rand::random::<usize>() % fgs.len();
             fgs[r].clone()
         } else {
