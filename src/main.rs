@@ -35,6 +35,9 @@ fn main() {
     let mut fimage = FImage::new(input.width() as usize, input.height() as usize, PixelFormat::RGBA);
     fimage.copy_from_image_buffer(&input);
 
+    // Fill bg white
+    image_filter::fn_filter(&mut fimage, |_, _, _| Pixel::rgba(1.0, 1.0, 1.0, 1.0));
+
     let mut ishihara_canvas = FImage::new(fimage.width(), fimage.height(), PixelFormat::RGBA);
     // println!("Blurring...");
     // let blurred = image_filter::filter_image(&fimage, FilterMatrix::new(GAUSSIAN));
